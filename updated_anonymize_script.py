@@ -15,6 +15,9 @@ logging.basicConfig(
     ]
 )
 
+#setup tracker for file names
+counter =1 
+
 # Initialize Stanza English pipeline
 stanza.download('en')
 nlp = stanza.Pipeline('en', processors='tokenize,ner')
@@ -49,7 +52,7 @@ def extract_text_from_docx(file_path):
     doc = docx.Document(file_path)
     return "\n".join([para.text for para in doc.paragraphs])
 
-def extract_sensitive_values(text):
+def redact_sensitive_values(text):
     logging.info("Extracting sensitive values from text")
     values_to_redact = set()
 
@@ -83,6 +86,9 @@ def redact_text(text, values_to_redact):
     return text
 
 def process_documents(input_dir, output_dir):
+
+    global counter
+
     logging.info(f"Processing documents in directory: {input_dir}")
     os.makedirs(output_dir, exist_ok=True)
     for filename in os.listdir(input_dir):
@@ -90,18 +96,27 @@ def process_documents(input_dir, output_dir):
             continue  # Skip temporary Word files
 
         file_path = os.path.join(input_dir, filename)
-        if filename.lower().endswith(".pdf"):
-            text = extract_text_from_pdf(file_path)
-        elif filename.lower().endswith(".docx"):
-            text = extract_text_from_docx(file_path)
-        else:
-            logging.warning(f"Skipping unsupported file: {filename}")
-            continue
 
-        values_to_redact = extract_sensitive_values(text)
+        try:
+
+            if filename.lower().endswith(".pdf"):
+                text = extract_text_from_pdf(file_path)
+            elif filename.lower().endswith(".docx"):
+                text = extract_text_from_docx(file_path)
+            else:
+                logging.warning(f"Skipping unsupported file: {filename}")
+                continue
+        except Exception as e:
+            logging.error(f"Failed to open file  file {output_path}: {e}")
+        
+        
+        values_to_redact = redact_sensitive_values(text)
         redacted_text = redact_text(text, values_to_redact)
 
-        output_filename = os.path.splitext(filename)[0] + ".md"
+        #output_filename = os.path.splitext(filename)[0] + ".md"
+        output_filename = f"redacted_document_{counter}.md"
+        counter += 1
+
         output_path = os.path.join(output_dir, output_filename)
         try:
             with open(output_path, "w", encoding="utf-8") as f:
@@ -111,6 +126,9 @@ def process_documents(input_dir, output_dir):
             logging.error(f"Failed to write redacted file {output_path}: {e}")
 
 if __name__ == "__main__":
+    ''' 
+    Example usage: python updated_anonymize_script.py <input_directory> <output_directory>
+    '''
     if len(sys.argv) != 3:
         logging.error("Usage: python updated_anonymize_script.py <input_directory> <output_directory>")
         sys.exit(1)
