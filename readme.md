@@ -1,1 +1,1 @@
-Simple scripts to anonmyise personal and company info from a folder of word and pdf docs.
+Simple scripts to anonmyise personal and company info from a folder of word and pdf docs. Forked from ioanag248/anonym_script
