@@ -90,7 +90,12 @@ def process_documents(input_dir, output_dir):
             f.write(redacted_text)
 
 
-input_directory = "input_reports"
-output_directory = "redacted_reports"
-process_documents(input_directory, output_directory)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python updated_anonymize_script.py <input_directory> <output_directory>")
+        sys.exit(1)
+    input_directory = sys.argv[1]
+    output_directory = sys.argv[2]
+    process_documents(input_directory, output_directory)
 
