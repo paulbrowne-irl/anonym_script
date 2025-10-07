@@ -2,12 +2,17 @@
 # create virtual environment and activate
 #   python3 -m venv venv
 #   source venv/bin/activate
+
+# may need to do 
+# then pip install --upgrade pymupdf 
+# before running pip isntall
+
 # 
 # run pip package manager
 #   pip install -r requirements.txt
 
 # list of required libs
-fitz            # for reading pdfs
+# fitz           # for reading pdfs
 python-docx     # for reading word documents
 stanza          # stanford NLP text analysis and manipulation
-PyMuPDF         # to support pdf reading 
+pymupdf         # to support pdf reading 
