@@ -17,7 +17,8 @@ keywords = [
     "Consultant Name:",
     "Consultant Company Name:",
     "Consultant Email Address:",
-    "Consultant Signature (3) :"
+    "Consultant Signature (3) :",
+    "Consultant Signature"
 ]
 email_pattern = re.compile(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}")
 
@@ -92,3 +93,4 @@ def process_documents(input_dir, output_dir):
 input_directory = "input_reports"
 output_directory = "redacted_reports"
 process_documents(input_directory, output_directory)
+
