@@ -1,6 +1,6 @@
 
 # create virtual environment and activate
-#   python3 -m venv .venv
+#   python3 -m venv venv
 #   source venv/bin/activate
 # 
 # run pip package manager
@@ -8,5 +8,6 @@
 
 # list of required libs
 fitz            # for reading pdfs
-docx            # for reading word documents
+python-docx     # for reading word documents
 stanza          # stanford NLP text analysis and manipulation
+PyMuPDF         # to support pdf reading 
