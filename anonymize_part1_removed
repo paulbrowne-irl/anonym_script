@@ -1,0 +1,181 @@
+import os
+import re
+import fitz  # PyMuPDF
+import docx
+import stanza
+import logging
+import unicodedata
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+counter = 1
+
+# Initialize Stanza
+stanza.download('en')
+nlp = stanza.Pipeline('en', processors='tokenize,ner')
+
+# Keywords and email pattern
+keywords = [
+    "Company Name:",
+    "Project Number:",
+    "Company Contact Name:",
+    "Contact Email Address:",
+    "Consultant Name:",
+    "Consultant Company Name:",
+    "Consultant Email Address:",
+    "Consultant Signature (3) :",
+    "Consultant Signature"
+]
+email_pattern = re.compile(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}")
+
+# Normalize text
+def normalize_text(text):
+    ligatures = {
+        'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl', 'ﬅ': 'ft', 'ﬆ': 'st'
+    }
+    for ligature, replacement in ligatures.items():
+        text = text.replace(ligature, replacement)
+    return unicodedata.normalize("NFKC", text).lower()
+
+# Load keywords from .txt
+def load_keywords_from_txt():
+    txt_file_path = r"keyword_file_path.txt"
+    logging.info(f"Loading keywords from: {txt_file_path}")
+    try:
+        with open(txt_file_path, "r", encoding="utf-8") as f:
+            return {normalize_text(line.strip()) for line in f if line.strip()}
+    except Exception as e:
+        logging.error(f"Failed to load keywords: {e}")
+        return set()
+
+# Extract text from PDF and exclude everything before Part 2
+def extract_text_from_pdf(file_path):
+    logging.info(f"Extracting text from PDF: {file_path}")
+    doc = fitz.open(file_path)
+    full_text = "\n".join([page.get_text("text") for page in doc])
+    doc.close()
+
+    # Normalize and search for Part 2 heading
+    normalized = normalize_text(full_text).replace("–", "-")
+    part2_variants = [
+        "part 2 - company specific report",
+        "part 2 – company specific report",
+        "part 2 company specific report"
+    ]
+    start_index = -1
+    for variant in part2_variants:
+        start_index = normalized.find(variant)
+        if start_index != -1:
+            break
+    if start_index != -1:
+        full_text = full_text[start_index:]
+    else:
+        logging.warning("Part 2 heading not found in PDF. Full text will be used.")
+    return full_text
+
+# Extract text from DOCX and exclude everything before Part 2
+def extract_text_from_docx(file_path):
+    logging.info(f"Extracting text from DOCX: {file_path}")
+    doc = docx.Document(file_path)
+    paragraphs = [para.text for para in doc.paragraphs]
+    filtered = []
+    start_collecting = False
+    for para in paragraphs:
+        if "Part 2" in para and "Company Specific Report" in para:
+            start_collecting = True
+        if start_collecting and para.strip():
+            filtered.append(para)
+    if not filtered:
+        logging.warning("Part 2 heading not found in DOCX. Full text will be used.")
+        return "\n".join(paragraphs)
+    return "\n".join(filtered)
+
+# Extract sensitive values
+def redact_sensitive_values(text):
+    logging.info("Extracting sensitive values")
+    values_to_redact = set()
+    normalized_text = normalize_text(text)
+
+    for keyword in keywords:
+        pattern = re.escape(keyword.lower()) + r"\s*(.*)"
+        matches = re.findall(pattern, normalized_text)
+        for match in matches:
+            value = match.strip().split("\n")[0]
+            if value:
+                values_to_redact.add(value)
+
+    values_to_redact.update(email_pattern.findall(normalized_text))
+
+    doc_nlp = nlp(text)
+    for ent in doc_nlp.ents:
+        if ent.type == "PERSON":
+            values_to_redact.add(ent.text.strip())
+
+    return values_to_redact
+
+# Redact values
+def redact_text(text, values_to_redact):
+    logging.info(f"Redacting {len(values_to_redact)} values")
+    for value in values_to_redact:
+        pattern = re.compile(rf"\b{re.escape(value)}\b", re.IGNORECASE)
+        text = pattern.sub("[REDACTED]", text)
+    return text
+
+# Redact keywords from .txt
+def redact_keywords_from_txt(text, keywords_set):
+    logging.info(f"Redacting {len(keywords_set)} keywords from .txt")
+    for keyword in keywords_set:
+        pattern = re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE)
+        text = pattern.sub("[REDACTED]", text)
+    return text
+
+# Main function
+def process_documents():
+    global counter
+    input_dir = "input_reports"
+    output_dir = "redacted_reports"
+    os.makedirs(output_dir, exist_ok=True)
+
+    keywords_from_txt = load_keywords_from_txt()
+
+    for filename in os.listdir(input_dir):
+        if filename.startswith("~$"):
+            continue
+
+        file_path = os.path.join(input_dir, filename)
+
+        try:
+            if filename.lower().endswith(".pdf"):
+                text = extract_text_from_pdf(file_path)
+            elif filename.lower().endswith(".docx"):
+                text = extract_text_from_docx(file_path)
+            else:
+                logging.warning(f"Skipping unsupported file: {filename}")
+                continue
+        except Exception as e:
+            logging.error(f"Failed to open file {file_path}: {e}")
+            continue
+
+        values_to_redact = redact_sensitive_values(text)
+        redacted_text = redact_text(text, values_to_redact)
+        redacted_text = redact_keywords_from_txt(redacted_text, keywords_from_txt)
+
+        output_filename = f"redacted_document_{counter}.md"
+        counter += 1
+
+        output_path = os.path.join(output_dir, output_filename)
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(redacted_text)
+            logging.info(f"Redacted file written: {output_path}")
+        except Exception as e:
+            logging.error(f"Failed to write file {output_path}: {e}")
+
+# Run
+if __name__ == "__main__":
+    process_documents()
