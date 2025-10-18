@@ -16,3 +16,5 @@
 python-docx     # for reading word documents
 stanza          # stanford NLP text analysis and manipulation
 pymupdf         # to support pdf reading 
+pandas          # table to hold word counts
+openpyxl        # for outputting excel file
