@@ -190,10 +190,10 @@ def process_documents(input_dir, output_dir):
 
 if __name__ == "__main__":
     ''' 
-    Example usage: python updated_anonymize_script.py <input_directory> <output_directory>
+    Example usage: python anonymize.py <input_directory> <output_directory>
     '''
     if len(sys.argv) != 3:
-        logging.error("Usage: python updated_anonymize_script.py <input_directory> <output_directory>")
+        logging.error("Usage: python anonymize.py <input_directory> <output_directory>")
         sys.exit(1)
     input_directory = sys.argv[1]
     output_directory = sys.argv[2]
