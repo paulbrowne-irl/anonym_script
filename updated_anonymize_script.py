@@ -36,8 +36,16 @@ keywords = [
 ]
 email_pattern = re.compile(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}")
 
-# Extract text from PDF
 def extract_text_from_pdf(file_path):
+    """
+    Extracts all text from a given PDF file.
+
+    Args:
+        file_path: The path to the PDF file.
+
+    Returns:
+        A string containing all the text from the PDF.
+    """
     logging.info(f"Extracting text from PDF: {file_path}")
     doc = fitz.open(file_path)
     full_text = []
@@ -46,13 +54,30 @@ def extract_text_from_pdf(file_path):
     doc.close()
     return "\n".join(full_text)
 
-# Extract text from DOCX
 def extract_text_from_docx(file_path):
+    """
+    Extracts all text from a given DOCX file.
+
+    Args:
+        file_path: The path to the DOCX file.
+
+    Returns:
+        A string containing all the text from the DOCX file.
+    """
     logging.info(f"Extracting text from DOCX: {file_path}")
     doc = docx.Document(file_path)
     return "\n".join([para.text for para in doc.paragraphs])
 
 def redact_sensitive_values(text):
+    """
+    Identifies sensitive values in a text based on keywords, email patterns, and named entity recognition.
+
+    Args:
+        text: The input string to search for sensitive values.
+
+    Returns:
+        A set of strings containing the identified sensitive values.
+    """
     logging.info("Extracting sensitive values from text")
     values_to_redact = set()
 
@@ -77,16 +102,54 @@ def redact_sensitive_values(text):
 
     return values_to_redact
 
-# Redact values in text
 def redact_text(text, values_to_redact):
+    """
+    Redacts a set of values from a given text.
+
+    Args:
+        text: The input string to redact values from.
+        values_to_redact: A set of strings to be replaced with "[REDACTED]".
+
+    Returns:
+        The text with the specified values redacted.
+    """
     logging.info(f"Redacting {len(values_to_redact)} values from text")
     for value in values_to_redact:
         pattern = re.compile(rf"\b{re.escape(value)}\b")
         text = pattern.sub("[REDACTED]", text)
     return text
 
-def process_documents(input_dir, output_dir):
+def redact_stopwords_from_markdown(markdown_text):
+    """
+    Reads a list of stopwords from 'stopwords.txt' and removes them from the given markdown text.
 
+    Args:
+        markdown_text: A string containing the text from a markdown file.
+
+    Returns:
+        The markdown text with stopwords removed.
+    """
+    logging.info("Redacting stopwords from markdown text.")
+    try:
+        with open("stopwords.txt", "r", encoding="utf-8") as f:
+            stopwords = set(f.read().splitlines())
+    except FileNotFoundError:
+        logging.error("stopwords.txt not found. No stopwords will be removed.")
+        return markdown_text
+
+    words = markdown_text.split()
+    redacted_words = [word for word in words if word.lower() not in stopwords]
+    return " ".join(redacted_words)
+
+def process_documents(input_dir, output_dir):
+    """
+    Processes all PDF and DOCX documents in an input directory, redacts sensitive information,
+    and writes the redacted text to markdown files in an output directory.
+
+    Args:
+        input_dir: The path to the directory containing the documents to process.
+        output_dir: The path to the directory where the redacted markdown files will be saved.
+    """
     global counter
 
     logging.info(f"Processing documents in directory: {input_dir}")
@@ -139,4 +202,3 @@ if __name__ == "__main__":
     except Exception as e:
         logging.exception(f"An error occurred during processing: {e}")
         sys.exit(1)
-
