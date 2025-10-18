@@ -3,6 +3,10 @@ import re
 import pandas as pd
 from collections import Counter
 import argparse
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def count_md_file_words(folder_path, output_excel_file='word_counts.xlsx'):
     """
@@ -18,8 +22,7 @@ def count_md_file_words(folder_path, output_excel_file='word_counts.xlsx'):
     all_words_counter = Counter()
     total_files_processed = 0
 
-    print(f"Starting word count for .md files in: {folder_path}")
-    print("-" * 30)
+    logging.info(f"Starting word count for .md files in: {folder_path}")
 
     # 2. Iterate over all files in the specified folder
     for filename in os.listdir(folder_path):
@@ -27,7 +30,7 @@ def count_md_file_words(folder_path, output_excel_file='word_counts.xlsx'):
             file_path = os.path.join(folder_path, filename)
             
             try:
-                print(f"Processing file: {filename}")
+                logging.info(f"Processing file: {filename}")
                 with open(file_path, 'r', encoding='utf-8') as f:
                     text = f.read()
 
@@ -41,12 +44,10 @@ def count_md_file_words(folder_path, output_excel_file='word_counts.xlsx'):
                 total_files_processed += 1
 
             except Exception as e:
-                print(f"Error reading or processing file {filename}: {e}")
+                logging.error(f"Error reading or processing file {filename}: {e}")
 
-    print("-" * 30)
-    
     if total_files_processed == 0:
-        print("No .md files found or processed. Exiting.")
+        logging.warning("No .md files found or processed. Exiting.")
         return
 
     # 5. Prepare data for Excel output
@@ -62,14 +63,15 @@ def count_md_file_words(folder_path, output_excel_file='word_counts.xlsx'):
     # 6. Output to Excel file
     try:
         df.to_excel(output_excel_file, index=False)
-        print(f"✅ Successfully wrote word counts to: {output_excel_file}")
-        print(f"Total unique words: {len(df)}")
-        print(f"Files processed: {total_files_processed}")
+        logging.info(f"✅ Successfully wrote word counts to: {output_excel_file}")
+        logging.info(f"Total unique words: {len(df)}")
+        logging.info(f"Files processed: {total_files_processed}")
     except Exception as e:
-        print(f"❌ Error writing to Excel file {output_excel_file}: {e}")
+        logging.error(f"❌ Error writing to Excel file {output_excel_file}: {e}")
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(description='Count word frequencies in .md files.')
     parser.add_argument('input_folder', type=str, help='The path to the folder containing the .md files.')
     parser.add_argument('output_file', type=str, help='The name of the Excel file to create.')
