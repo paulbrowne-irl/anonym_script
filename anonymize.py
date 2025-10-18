@@ -36,6 +36,17 @@ keywords = [
 ]
 email_pattern = re.compile(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}")
 
+# Load a list of specfic stop words to remove from the text
+try:
+    with open("stopwords.txt", "r", encoding="utf-8") as f:
+        stopwords = set(f.read().splitlines())
+except FileNotFoundError:
+    logging.error("stopwords.txt not found. No stopwords will be removed.")
+       
+
+
+
+
 def extract_text_from_pdf(file_path):
     """
     Extracts all text from a given PDF file.
@@ -117,11 +128,16 @@ def redact_text(text, values_to_redact):
     for value in values_to_redact:
         pattern = re.compile(rf"\b{re.escape(value)}\b")
         text = pattern.sub("[REDACTED]", text)
+
+
+    # check and remove stopwords from this text
+    text=redact_stopwords_from_markdown(text)
+    
     return text
 
 def redact_stopwords_from_markdown(markdown_text):
     """
-    Reads a list of stopwords from 'stopwords.txt' and removes them from the given markdown text.
+    removes previously read list of stopwords from 'stopwords.txt' and removes them from the given markdown text.
 
     Args:
         markdown_text: A string containing the text from a markdown file.
@@ -130,12 +146,8 @@ def redact_stopwords_from_markdown(markdown_text):
         The markdown text with stopwords removed.
     """
     logging.info("Redacting stopwords from markdown text.")
-    try:
-        with open("stopwords.txt", "r", encoding="utf-8") as f:
-            stopwords = set(f.read().splitlines())
-    except FileNotFoundError:
-        logging.error("stopwords.txt not found. No stopwords will be removed.")
-        return markdown_text
+
+    global stopwords
 
     words = markdown_text.split()
     redacted_words = [word for word in words if word.lower() not in stopwords]
