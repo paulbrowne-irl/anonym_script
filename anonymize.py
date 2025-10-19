@@ -18,6 +18,9 @@ logging.basicConfig(
 #setup tracker for file names
 counter =1 
 
+#handle stopwords globally
+stopwords =[]
+
 # Initialize Stanza English pipeline
 stanza.download('en')
 nlp = stanza.Pipeline('en', processors='tokenize,ner')
@@ -35,15 +38,6 @@ keywords = [
     "Consultant Signature"
 ]
 email_pattern = re.compile(r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}")
-
-# Load a list of specfic stop words to remove from the text
-try:
-    with open("stopwords.txt", "r", encoding="utf-8") as f:
-        stopwords = set(f.read().splitlines())
-except FileNotFoundError:
-    logging.error("stopwords.txt not found. No stopwords will be removed.")
-       
-
 
 
 
@@ -149,11 +143,24 @@ def redact_stopwords_from_markdown(markdown_text):
 
     global stopwords
 
-    words = markdown_text.split()
-    redacted_words = [word for word in words if word.lower() not in stopwords]
-    return " ".join(redacted_words)
+    total_replacements = 0
 
-def process_documents(input_dir, output_dir):
+    # Ensure stopwords is iterable (set or list); skip empty items
+    for sw in (stopwords or []):
+        if not sw:
+            continue
+        # Use whole-word, case-insensitive matching; escape the stopword for regex safety
+        try:
+            pattern = re.compile(rf"\b{re.escape(sw)}\b", flags=re.IGNORECASE)
+        except re.error:
+            pattern = re.compile(re.escape(sw), flags=re.IGNORECASE)
+        markdown_text, n = pattern.subn("[redacted]", markdown_text)
+        total_replacements += n
+
+    logging.info(f"Replaced {total_replacements} stopword occurrences.")
+    return markdown_text
+
+def process_documents(input_dir, output_dir,stopwords_file_name):
     """
     Processes all PDF and DOCX documents in an input directory, redacts sensitive information,
     and writes the redacted text to markdown files in an output directory.
@@ -161,8 +168,21 @@ def process_documents(input_dir, output_dir):
     Args:
         input_dir: The path to the directory containing the documents to process.
         output_dir: The path to the directory where the redacted markdown files will be saved.
+        stopwords_file_name: The path to the stopwords file.
     """
     global counter
+    global stopwords
+
+    # Load a list of specfic stop words to remove from the text
+    try:
+        with open(stopwords_file_name, "r", encoding="utf-8") as f:
+            stopwords = set(f.read().splitlines())
+            logging.info(f"Loaded {len(stopwords)} stopwords from {stopwords_file_name}.")
+            
+    except FileNotFoundError:
+        logging.error(f"{stopwords_file_name} not found. No stopwords will be removed.")
+       
+
 
     logging.info(f"Processing documents in directory: {input_dir}")
     os.makedirs(output_dir, exist_ok=True)
@@ -204,13 +224,16 @@ if __name__ == "__main__":
     ''' 
     Example usage: python anonymize.py <input_directory> <output_directory>
     '''
-    if len(sys.argv) != 3:
-        logging.error("Usage: python anonymize.py <input_directory> <output_directory>")
+    if len(sys.argv) != 4:
+        logging.error("Usage: python anonymize.py <input_directory> <output_directory> <stopwords_file>")
+        logging.info("Params given:"+str(sys.argv))
         sys.exit(1)
     input_directory = sys.argv[1]
     output_directory = sys.argv[2]
+    stopwords_file = sys.argv[3]
+
     try:
-        process_documents(input_directory, output_directory)
+        process_documents(input_directory, output_directory, stopwords_file)
     except Exception as e:
         logging.exception(f"An error occurred during processing: {e}")
         sys.exit(1)
